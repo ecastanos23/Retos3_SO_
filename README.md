@@ -348,6 +348,38 @@ Salida esperada:
 ==PID== All heap blocks were freed -- no leaks are possible
 ```
 
+### Capturas de Evidencia del Benchmark
+
+Incluye aquí las capturas reales de la terminal donde se vea la comparación entre el enfoque naive y el enfoque optimizado. La evidencia más útil es la salida de `strace -c -f` y la sección de `time`.
+
+| Captura | Qué debe mostrar | Archivo sugerido |
+|---------|------------------|------------------|
+| 1 | `EXPERIMENTO 1`: texto plano con `write()` pequeño y su tabla final de `strace -c` | `docs/benchmark-naive.png` |
+| 2 | `EXPERIMENTO 2`: compresión RLE + `write(4KB)` y su tabla final de `strace -c` | `docs/benchmark-write.png` |
+| 3 | `EXPERIMENTO 3`: compresión RLE + `mmap()` y su tabla final de `strace -c` | `docs/benchmark-mmap.png` |
+| 4 | `EXPERIMENTO 4`: salida de `time` con `real`, `user` y `sys` | `docs/benchmark-time.png` |
+
+Una vez guardadas esas imágenes en el repositorio, puedes incrustarlas así:
+
+```md
+![Benchmark naive](docs/benchmark-naive.png)
+![Benchmark write](docs/benchmark-write.png)
+![Benchmark mmap](docs/benchmark-mmap.png)
+![Benchmark time](docs/benchmark-time.png)
+```
+
+Si prefieres una sola sección compacta, puedes agruparlas en una tabla de dos columnas:
+
+```md
+| Naive | Write 4KB |
+|-------|-----------|
+| ![Naive](docs/benchmark-naive.png) | ![Write 4KB](docs/benchmark-write.png) |
+
+| Mmap | Time |
+|------|------|
+| ![Mmap](docs/benchmark-mmap.png) | ![Time](docs/benchmark-time.png) |
+```
+
 ---
 
 ## Decisiones de Diseño

@@ -120,8 +120,40 @@ int doc_load(const char *path, LoadedDocument *out) {
         return -1;
     }
 
+    if (hdr->version != CEDS_VERSION) {
+        fprintf(stderr, "doc_load: versión de formato no soportada\n");
+        free(file_data);
+        return -1;
+    }
+
+    if (hdr->compression_type != COMPRESSION_RLE) {
+        fprintf(stderr, "doc_load: tipo de compresión no soportado\n");
+        free(file_data);
+        return -1;
+    }
+
     /* Validar checksum del payload comprimido */
+    if (hdr->style_count > 64) {
+        fprintf(stderr, "doc_load: demasiados estilos para este editor\n");
+        free(file_data);
+        return -1;
+    }
+
     size_t  style_sz  = hdr->style_count * sizeof(StyleEntry);
+    size_t  total_sz  = sizeof(FileHeader) + style_sz + hdr->compressed_size;
+
+    if (hdr->style_count > 0 && !(hdr->flags & FLAG_RICH_TEXT)) {
+        fprintf(stderr, "doc_load: estilos presentes pero FLAG_RICH_TEXT no está activo\n");
+        free(file_data);
+        return -1;
+    }
+
+    if (total_sz != file_size || total_sz < sizeof(FileHeader)) {
+        fprintf(stderr, "doc_load: tamaños inconsistentes en el archivo\n");
+        free(file_data);
+        return -1;
+    }
+
     uint8_t *comp_ptr = file_data + sizeof(FileHeader) + style_sz;
     uint32_t actual_ck = calc_checksum(comp_ptr, hdr->compressed_size);
     if (actual_ck != hdr->checksum) {

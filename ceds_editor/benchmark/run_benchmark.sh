@@ -38,12 +38,17 @@ if [ -z "$TESTFILE" ] || [ ! -f "$TESTFILE" ]; then
 fi
 
 FILE_SIZE=$(stat -c%s "$TESTFILE" 2>/dev/null || stat -f%z "$TESTFILE")
+FILE_MB=$(awk -v sz="$FILE_SIZE" 'BEGIN { printf "%.2f", sz / 1048576 }')
+
+ratio_pct() {
+    awk -v num="$1" -v den="$2" 'BEGIN { if (den > 0) printf "%.1f", (num * 100.0) / den; else printf "0.0" }'
+}
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 echo " CEDS Editor — Benchmark de I/O con strace y time"
 echo " Archivo: $TESTFILE"
-echo " Tamaño:  $FILE_SIZE bytes ($(echo "scale=2; $FILE_SIZE/1048576" | bc) MB)"
+echo " Tamaño:  $FILE_SIZE bytes ($FILE_MB MB)"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 
@@ -53,8 +58,8 @@ echo "│ EXPERIMENTO 1: Texto plano, write() de 64B (naïve)         │"
 echo "└─────────────────────────────────────────────────────────────┘"
 echo "Corriendo strace..."
 
-strace -c -e trace=write,open,close \
-    bash -c "echo ':open $TESTFILE\n:plain /tmp/bench_naive_out.txt\n:quit' | $EDITOR" \
+strace -c -f -e trace=write,open,close \
+    bash -c "printf ':open %s\\n:plain /tmp/bench_naive_out.txt\\n:quit\\n' \"$TESTFILE\" | $EDITOR" \
     2>"$RESULTS_DIR/strace_naive.txt" || true
 
 echo "──── Resultado strace (naive) ────"
@@ -67,8 +72,8 @@ echo "│ EXPERIMENTO 2: Compresión RLE + write() alineado 4KB       │"
 echo "└─────────────────────────────────────────────────────────────┘"
 echo "Corriendo strace..."
 
-strace -c -e trace=write,open,close \
-    bash -c "echo ':open $TESTFILE\n:save /tmp/bench_fd_out.ceds\n:quit' | $EDITOR" \
+strace -c -f -e trace=write,open,close \
+    bash -c "printf ':open %s\\n:save /tmp/bench_fd_out.ceds\\n:quit\\n' \"$TESTFILE\" | $EDITOR" \
     2>"$RESULTS_DIR/strace_fd.txt" || true
 
 echo "──── Resultado strace (RLE + write) ────"
@@ -81,8 +86,8 @@ echo "│ EXPERIMENTO 3: Compresión RLE + mmap()                     │"
 echo "└─────────────────────────────────────────────────────────────┘"
 echo "Corriendo strace..."
 
-strace -c -e trace=mmap,munmap,msync,open,close \
-    bash -c "echo ':open $TESTFILE\n:savem /tmp/bench_mmap_out.ceds\n:quit' | $EDITOR" \
+strace -c -f -e trace=mmap,munmap,msync,open,close \
+    bash -c "printf ':open %s\\n:savem /tmp/bench_mmap_out.ceds\\n:quit\\n' \"$TESTFILE\" | $EDITOR" \
     2>"$RESULTS_DIR/strace_mmap.txt" || true
 
 echo "──── Resultado strace (RLE + mmap) ────"
@@ -117,9 +122,12 @@ SZ_FD=$(stat -c%s    /tmp/t_fd.ceds    2>/dev/null || echo 0)
 SZ_MMAP=$(stat -c%s  /tmp/t_mmap.ceds  2>/dev/null || echo 0)
 
 echo "  Naive (plano 64B):    $SZ_NAIVE bytes (100%)"
-echo "  RLE + write (4KB):    $SZ_FD bytes ($(echo "scale=1; $SZ_FD*100/$SZ_NAIVE" | bc)%)"
-echo "  RLE + mmap:           $SZ_MMAP bytes ($(echo "scale=1; $SZ_MMAP*100/$SZ_NAIVE" | bc)%)"
+echo "  RLE + write (4KB):    $SZ_FD bytes ($(ratio_pct "$SZ_FD" "$SZ_NAIVE")%)"
+echo "  RLE + mmap:           $SZ_MMAP bytes ($(ratio_pct "$SZ_MMAP" "$SZ_NAIVE")%)"
 echo ""
+echo "Para evidenciar user/sys y context switches de forma más completa:"
+echo "  /usr/bin/time -v ./bin/editor $TESTFILE"
+echo "  strace -c -f -e trace=write,read,mmap,munmap,msync,open,close ./bin/editor $TESTFILE"
 echo "Resultados de strace guardados en: $RESULTS_DIR/"
 echo ""
 echo "═══ Comandos adicionales recomendados para el reporte ═══"

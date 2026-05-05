@@ -55,9 +55,11 @@ static void cmd_new(const char *title) {
     if (!g_buf) { fprintf(stderr, "ERROR: no se pudo inicializar el buffer\n"); return; }
 
     strncpy(g_title, title && title[0] ? title : "Sin título", sizeof(g_title) - 1);
+    g_title[sizeof(g_title) - 1] = '\0';
     g_path[0]     = '\0';
     g_modified    = 0;
     g_style_count = 0;
+    memset(g_styles, 0, sizeof(g_styles));
     printf("Nuevo documento creado: '%s'\n", g_title);
 }
 
@@ -79,9 +81,19 @@ static void cmd_open(const char *path) {
         gb_insert_str(g_buf, doc.text, doc.text_size);
 
         strncpy(g_title, doc.header.title, sizeof(g_title) - 1);
+        g_title[sizeof(g_title) - 1] = '\0';
         strncpy(g_path,  path,             sizeof(g_path)  - 1);
+        g_path[sizeof(g_path) - 1] = '\0';
         g_modified    = 0;
         g_style_count = 0;
+        memset(g_styles, 0, sizeof(g_styles));
+        if (doc.styles && doc.header.style_count > 0) {
+            g_style_count = doc.header.style_count;
+            if (g_style_count > 64) {
+                g_style_count = 64;
+            }
+            memcpy(g_styles, doc.styles, g_style_count * sizeof(StyleEntry));
+        }
 
         printf("Abierto: '%s'\n", path);
         printf("  Título         : %s\n", g_title);
@@ -104,7 +116,9 @@ static void cmd_open(const char *path) {
         free(data);
 
         strncpy(g_title, basename_of(path), sizeof(g_title) - 1);
+        g_title[sizeof(g_title) - 1] = '\0';
         strncpy(g_path,  path,              sizeof(g_path)  - 1);
+        g_path[sizeof(g_path) - 1] = '\0';
         g_modified = 0;
         printf("Importado: '%s' (%zu bytes de texto plano)\n", path, fsize);
     }
@@ -219,6 +233,7 @@ static void cmd_save(const char *path, int use_mmap) {
 
     if (ret == 0) {
         strncpy(g_path, dest, sizeof(g_path) - 1);
+        g_path[sizeof(g_path) - 1] = '\0';
         g_modified = 0;
         size_t on_disk = file_size_of(dest);
         printf("Guardado: '%s' [%s]\n", dest, use_mmap ? "mmap" : "write(4KB)");

@@ -14,21 +14,7 @@
 #include <string.h>
 #include <time.h>
 
-/* Vocabulario de Sistemas Operativos */
-static const char *WORDS[] = {
-    "sistema", "operativo", "kernel", "proceso", "memoria", "buffer",
-    "archivo", "disco", "CPU", "bus", "interrupción", "scheduler",
-    "pipeline", "compresión", "descriptor", "página", "virtual", "físico",
-    "Linux", "POSIX", "syscall", "mmap", "write", "read", "open", "close",
-    "malloc", "free", "puntero", "estructura", "eficiencia", "rendimiento",
-    "optimización", "latencia", "throughput", "benchmark", "profiling",
-    "context", "switch", "DMA", "cache", "heap", "stack", "segfault",
-    "valgrind", "strace", "alineación", "bloque", "sector", "inodo",
-    "compresión", "descompresión", "algoritmo", "datos", "archivo", "binario"
-};
-#define WORD_COUNT (int)(sizeof(WORDS) / sizeof(WORDS[0]))
-
-/* Frases de relleno (generan repetición, ideal para RLE) */
+/* Frases de relleno (texto humano + bloques de espacios para favorecer RLE) */
 static const char *PHRASES[] = {
     "el sistema operativo gestiona los recursos del hardware",
     "la memoria virtual permite aislar los procesos entre sí",
@@ -38,6 +24,20 @@ static const char *PHRASES[] = {
     "la compresión reduce el volumen de datos en el bus de I/O"
 };
 #define PHRASE_COUNT (int)(sizeof(PHRASES) / sizeof(PHRASES[0]))
+
+#define SPACE_RUN 192
+
+static void write_spaces(FILE *f, size_t count, size_t *written) {
+    static const char blanks[] =
+        "                                                                "
+        "                                                                ";
+    while (count > 0) {
+        size_t chunk = count < (sizeof(blanks) - 1) ? count : (sizeof(blanks) - 1);
+        fwrite(blanks, 1, chunk, f);
+        *written += chunk;
+        count -= chunk;
+    }
+}
 
 int main(int argc, char *argv[]) {
     size_t target_mb = 5;
@@ -51,34 +51,34 @@ int main(int argc, char *argv[]) {
     FILE *f = fopen(outfile, "w");
     if (!f) { perror("fopen"); return 1; }
 
-    srand((unsigned)time(NULL));
     size_t written   = 0;
+    size_t line_count = 0;
 
     printf("Generando %zu MB en '%s'...\n", target_mb, outfile);
 
     while (written < target_bytes) {
-        /* Cada 10 líneas, insertar una frase completa (genera patrones RLE) */
-        if (rand() % 10 == 0) {
-            const char *phrase = PHRASES[rand() % PHRASE_COUNT];
-            size_t plen = strlen(phrase);
-            fwrite(phrase, 1, plen, f);
-            fputc('\n', f);
-            written   += plen + 1;
-            continue;
-        }
+        /* Bloque de espacios inicial para que RLE comprima una parte grande del archivo */
+        write_spaces(f, SPACE_RUN, &written);
 
-        /* Línea normal: 6-14 palabras aleatorias */
-        int line_words = 6 + rand() % 9;
-        for (int i = 0; i < line_words && written < target_bytes; i++) {
-            const char *w = WORDS[rand() % WORD_COUNT];
-            size_t wlen   = strlen(w);
-            fwrite(w, 1, wlen, f);
-            written += wlen;
+        /* Línea de texto variable con vocabulario de SO */
+        const char *phrase = PHRASES[line_count % PHRASE_COUNT];
+        size_t plen = strlen(phrase);
+        fwrite(phrase, 1, plen, f);
+        written += plen;
 
-            if (i < line_words - 1) { fputc(' ', f); written++; }
-        }
+        /* Bloque de espacios final: el mayor beneficio de RLE viene de aquí */
+        write_spaces(f, SPACE_RUN, &written);
         fputc('\n', f);
         written++;
+
+        /* Separador adicional, altamente compresible */
+        if ((line_count % 4) == 3) {
+            write_spaces(f, SPACE_RUN * 2, &written);
+            fputc('\n', f);
+            written++;
+        }
+
+        line_count++;
     }
 
     fclose(f);

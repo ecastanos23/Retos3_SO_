@@ -1,0 +1,8 @@
+strace: Process 14732 attached
+strace: Process 14733 attached
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 68.92    0.000397          23        17           write
+ 31.08    0.000179           6        29         2 close
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.000576          12        46         2 total
